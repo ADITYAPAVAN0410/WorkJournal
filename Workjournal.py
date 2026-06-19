@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict
+
+IST = timezone(timedelta(hours=5, minutes=30))
 
 # Config
 JOURNAL_FILE = Path.home() / ".workjournal" / "journal.json"
@@ -25,7 +27,7 @@ def log_task(description, category="other"):
     """Saves a new task to the journal."""
     entries = load_journal()
     entries.append({
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "timestamp": datetime.now(IST).isoformat(timespec="seconds"),
         "activity_description": description,
         "category": category,
     })

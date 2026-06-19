@@ -1,0 +1,2 @@
+@echo off
+python "A:\desktop files\aditya work\weekly report\files\Workjournal.py" %*

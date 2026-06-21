@@ -41,6 +41,8 @@ with st.sidebar:
 
         if username_input and Workjournal.user_exists(username_input):
             # Returning user
+            st.warning(f"⚠️ **'{username_input}'** is already registered. "
+                       f"Enter your PIN to login, or choose a different username above.")
             if st.button("Login"):
                 if Workjournal.verify_pin(username_input, pin_input):
                     st.session_state.authenticated = True
@@ -50,7 +52,7 @@ with st.sidebar:
                     st.error("⛔ Incorrect PIN. Please try again.")
         elif username_input:
             # New user — register
-            st.info("New user detected. Confirm your PIN to register.")
+            st.info("✅ Username available! Set a PIN to create your account.")
             pin_confirm = st.text_input("Confirm PIN", type="password", placeholder="Re-enter PIN")
             if st.button("Create Account"):
                 if len(pin_input) < 4:

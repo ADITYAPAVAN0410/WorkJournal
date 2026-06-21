@@ -17,8 +17,8 @@ import Workjournal
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-st.set_page_config(page_title="WorkJournal", layout="wide")
-st.title("💻 WorkJournal")
+st.set_page_config(page_title="WorkLog", layout="wide")
+st.title("💻 WorkLog")
 
 # ── AUTH ──────────────────────────────────────────────────────────────────────
 if "authenticated" not in st.session_state:
@@ -66,7 +66,7 @@ with st.sidebar:
             st.warning("Please enter your username to continue.")
 
 if not st.session_state.authenticated:
-    st.info("👈 Please sign in from the sidebar to use WorkJournal.")
+    st.info("👈 Please sign in from the sidebar to use WorkLog 🗂️.")
     st.stop()
 
 username = st.session_state.auth_user
@@ -509,7 +509,7 @@ if entries:
             st.download_button(
                 label="⬇️ Download Word Report",
                 data=docx_buf.read(),
-                file_name=f"WorkJournal_{report_type.split()[0]}_Report.docx",
+                file_name=f"WorkLog_{report_type.split()[0]}_Report.docx",
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             )
 

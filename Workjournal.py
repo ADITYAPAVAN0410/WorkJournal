@@ -8,7 +8,7 @@ IST = timezone(timedelta(hours=5, minutes=30))
 VALID_CATEGORIES = ["coding", "meeting", "planning", "review", "research", "docs", "devops", "admin", "other", "practice"]
 
 def _user_dir(username: str) -> Path:
-    path = Path.home() / ".workjournal" / username.strip().lower()
+    path = Path.home() / ".worklog" / username.strip().lower()
     path.mkdir(parents=True, exist_ok=True)
     return path
 

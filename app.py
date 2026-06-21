@@ -1,5 +1,7 @@
 import io
+import re
 from datetime import datetime, timezone, timedelta
+
 
 import streamlit as st
 import pandas as pd
@@ -18,33 +20,90 @@ IST = timezone(timedelta(hours=5, minutes=30))
 st.set_page_config(page_title="WorkJournal", layout="wide")
 st.title("💻 WorkJournal")
 
+# ── USERNAME ──────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.header("👤 Who are you?")
+    username_input = st.text_input("Enter your name to load your journal",
+                                   placeholder="e.g. aditya")
+    if username_input.strip():
+        st.success(f"Logged in as **{username_input.strip().lower()}**")
+    else:
+        st.warning("Please enter your name to continue.")
+
+username = username_input.strip().lower()
+
+if not username:
+    st.info("👈 Enter your name in the sidebar to get started.")
+    st.stop()
+
 # ── 1. LOG FORM ──────────────────────────────────────────────────────────────
 with st.expander("➕ Log New Activity"):
     with st.form("log_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
-        description = col1.text_input("Activity Description")
-        category    = col2.selectbox("Category", Workjournal.VALID_CATEGORIES)
+        description    = col1.text_input("Activity Description")
+        category_pick  = col2.selectbox("Category", Workjournal.VALID_CATEGORIES)
 
-        now_ist = datetime.now(IST).time()
+        custom_category = ""
+        if category_pick == "other":
+            custom_category = st.text_input("Custom Category (since you selected 'other')",
+                                            placeholder="e.g. training, client-call...")
+
+        # Common times every 30 min (06:00 – 22:30)
+        TIME_LIST = [f"{h:02d}:{m:02d}" for h in range(6, 23) for m in (0, 30)]
+
         col3, col4 = st.columns(2)
-        start_t = col3.time_input("Start Time", value=now_ist)
-        end_t   = col4.time_input("End Time",   value=now_ist)
+        start_pick = col3.selectbox("Start Time", TIME_LIST)
+        end_pick   = col4.selectbox("End Time",   TIME_LIST, index=1)
+
+        col5, col6 = st.columns(2)
+        start_custom = col5.text_input("Custom Start (overrides list)", placeholder="e.g. 09:47")
+        end_custom   = col6.text_input("Custom End   (overrides list)", placeholder="e.g. 10:23")
 
         if st.form_submit_button("Log Task"):
-            if description.strip():
-                Workjournal.log_task(
-                    description,
-                    category,
-                    start_time=start_t.strftime("%H:%M"),
-                    end_time=end_t.strftime("%H:%M"),
-                )
-                st.rerun()
-            else:
+            time_pattern = re.compile(r"^\d{2}:\d{2}$")
+            category = custom_category.strip() if (category_pick == "other" and custom_category.strip()) else category_pick
+
+            # Custom text overrides the selectbox if filled
+            start_t = start_custom.strip() if start_custom.strip() else start_pick
+            end_t   = end_custom.strip()   if end_custom.strip()   else end_pick
+
+            if not description.strip():
                 st.warning("Please enter an activity description.")
+            elif not time_pattern.match(start_t) or not time_pattern.match(end_t):
+                st.warning("Custom time must be in HH:MM format (e.g. 09:47).")
+            else:
+                overlap = Workjournal.check_overlap(
+                    Workjournal.load_journal(username), start_t, end_t, username
+                )
+                if overlap["conflict"] and overlap.get("reason") == "end_before_start":
+                    st.error(
+                        "⛔ Invalid Time Range: End time must be after start time. "
+                        "Please correct the times before submitting."
+                    )
+                elif overlap["conflict"] and overlap.get("reason") == "overlap":
+                    conflict_entry = overlap["with"]
+                    c_start = Workjournal.fmt_time(conflict_entry["start_time"])
+                    c_end   = Workjournal.fmt_time(conflict_entry["end_time"])
+                    c_act   = conflict_entry["activity_description"]
+                    st.error(
+                        f"⛔ Time Conflict Detected: The entry **{start_t} – {end_t}** overlaps "
+                        f"with an existing entry **[{c_start} – {c_end} | {c_act}]**. "
+                        f"Overlapping entries are not allowed to ensure accurate time tracking. "
+                        f"Please adjust your start or end time."
+                    )
+                else:
+                    Workjournal.log_task(
+                        description,
+                        category,
+                        start_time=start_t,
+                        end_time=end_t,
+                        username=username,
+                    )
+                    st.rerun()
 
 # ── 2. BUILD DISPLAY DATA ────────────────────────────────────────────────────
 st.header("📋 Activity Log")
-entries = Workjournal.load_journal()
+entries = Workjournal.load_journal(username)
 
 if entries:
     display_data = []

@@ -5,24 +5,30 @@ from typing import List, Dict
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-JOURNAL_FILE = Path.home() / ".workjournal" / "journal.json"
 VALID_CATEGORIES = ["coding", "meeting", "planning", "review", "research", "docs", "devops", "admin", "other", "practice"]
 
-def load_journal() -> List[Dict]:
-    JOURNAL_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if not JOURNAL_FILE.exists():
-        JOURNAL_FILE.write_text("[]", encoding="utf-8")
+def _journal_file(username: str) -> Path:
+    path = Path.home() / ".workjournal" / username.strip().lower() / "journal.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+def load_journal(username: str = "default") -> List[Dict]:
+    f = _journal_file(username)
+    if not f.exists():
+        f.write_text("[]", encoding="utf-8")
         return []
     try:
-        return json.loads(JOURNAL_FILE.read_text(encoding="utf-8"))
+        return json.loads(f.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return []
 
-def save_journal(entries) -> None:
-    JOURNAL_FILE.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
+def save_journal(entries, username: str = "default") -> None:
+    _journal_file(username).write_text(
+        json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
-def log_task(description, category="other", start_time=None, end_time=None):
-    entries = load_journal()
+def log_task(description, category="other", start_time=None, end_time=None, username: str = "default"):
+    entries = load_journal(username)
     today = datetime.now(IST).date().isoformat()
 
     def to_iso(t_str):
@@ -40,7 +46,7 @@ def log_task(description, category="other", start_time=None, end_time=None):
         "activity_description": description,
         "category": category,
     })
-    save_journal(entries)
+    save_journal(entries, username)
 
 def fmt_date(ts: str) -> str:
     return datetime.fromisoformat(ts).strftime("%d-%m-%Y")
@@ -62,6 +68,38 @@ def fmt_duration(start_ts, end_ts) -> str:
         return f"{h}h {m}m"
     except Exception:
         return "N/A"
+
+def check_overlap(entries, new_start_str: str, new_end_str: str, username: str = "default") -> dict:
+    """
+    Returns {"conflict": True, "with": <entry>} if new_start–new_end overlaps
+    any existing entry logged on the same date, else {"conflict": False}.
+    Overlap rule: (A.start < B.end) AND (B.start < A.end)
+    """
+    today = datetime.now(IST).date().isoformat()
+
+    def to_minutes(t_str: str) -> int:
+        h, m = map(int, t_str.split(":"))
+        return h * 60 + m
+
+    new_s = to_minutes(new_start_str)
+    new_e = to_minutes(new_end_str)
+
+    if new_e <= new_s:
+        return {"conflict": True, "reason": "end_before_start"}
+
+    for e in entries:
+        e_date = datetime.fromisoformat(e["timestamp"]).date().isoformat()
+        if e_date != today:
+            continue
+        if not e.get("start_time") or not e.get("end_time"):
+            continue
+        ex_s = to_minutes(fmt_time(e["start_time"]))
+        ex_e = to_minutes(fmt_time(e["end_time"]))
+        if new_s < ex_e and ex_s < new_e:
+            return {"conflict": True, "reason": "overlap", "with": e}
+
+    return {"conflict": False}
+
 
 def duration_minutes(start_ts, end_ts) -> float:
     if not start_ts or not end_ts:

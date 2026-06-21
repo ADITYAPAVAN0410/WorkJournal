@@ -186,6 +186,17 @@ if entries:
     st.divider()
     st.subheader("📤 Export Report")
 
+    # Month picker — always visible
+    all_months = sorted(set(
+        datetime.fromisoformat(e["timestamp"]).strftime("%B %Y")
+        for e in entries
+    ), key=lambda m: datetime.strptime(m, "%B %Y"))
+
+    selected_month = st.selectbox(
+        "📅 Filter Excel by Month (applies to Excel download only)",
+        ["All (use selected range below)"] + all_months
+    )
+
     if st.button("🖨️ Select Range & Export"):
         st.session_state.show_modal = True
 
@@ -280,18 +291,6 @@ if entries:
 
             # EXCEL ────────────────────────────────────────────────────────────
             with col_x:
-                # Month picker — built from all entries (not just selected range)
-                all_real_entries = [e for e in entries]
-                all_months = sorted(set(
-                    datetime.fromisoformat(e["timestamp"]).strftime("%B %Y")
-                    for e in all_real_entries
-                ), key=lambda m: datetime.strptime(m, "%B %Y"))
-
-                selected_month = st.selectbox(
-                    "📅 Filter Excel by Month",
-                    ["All (use selected range above)"] + all_months
-                )
-
                 def build_excel(dataframe, src_entries):
                     buf     = io.BytesIO()
                     real_df = dataframe[dataframe["S.No"] != "---"].copy()
@@ -371,13 +370,13 @@ if entries:
                     return buf.read()
 
                 # Apply month filter if selected
-                if selected_month == "All (use selected range above)":
+                if selected_month == "All (use selected range below)":
                     excel_df      = report_df
                     excel_entries = range_entries
                     excel_fname   = f"Report_{start_idx}_to_{end_idx}.xlsx"
                 else:
                     month_entries = [
-                        e for e in all_real_entries
+                        e for e in entries
                         if datetime.fromisoformat(e["timestamp"]).strftime("%B %Y") == selected_month
                     ]
                     month_display = []

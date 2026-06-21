@@ -78,10 +78,10 @@ with st.expander("➕ Log New Activity"):
         description    = col1.text_input("Activity Description")
         category_pick  = col2.selectbox("Category", Workjournal.VALID_CATEGORIES)
 
-        custom_category = ""
-        if category_pick == "other":
-            custom_category = st.text_input("Custom Category (since you selected 'other')",
-                                            placeholder="e.g. training, client-call...")
+        custom_category = st.text_input(
+            "Custom Category — fill this if you selected 'other' above",
+            placeholder="e.g. training, client-call..."
+        )
 
         # Common times every 30 min (06:00 – 22:30)
         TIME_LIST = [f"{h:02d}:{m:02d}" for h in range(6, 23) for m in (0, 30)]

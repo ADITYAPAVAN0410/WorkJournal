@@ -280,6 +280,18 @@ if entries:
 
             # EXCEL ────────────────────────────────────────────────────────────
             with col_x:
+                # Month picker — built from all entries (not just selected range)
+                all_real_entries = [e for e in entries]
+                all_months = sorted(set(
+                    datetime.fromisoformat(e["timestamp"]).strftime("%B %Y")
+                    for e in all_real_entries
+                ), key=lambda m: datetime.strptime(m, "%B %Y"))
+
+                selected_month = st.selectbox(
+                    "📅 Filter Excel by Month",
+                    ["All (use selected range above)"] + all_months
+                )
+
                 def build_excel(dataframe, src_entries):
                     buf     = io.BytesIO()
                     real_df = dataframe[dataframe["S.No"] != "---"].copy()
@@ -358,11 +370,38 @@ if entries:
                     buf.seek(0)
                     return buf.read()
 
-                excel_bytes = build_excel(report_df, range_entries)
+                # Apply month filter if selected
+                if selected_month == "All (use selected range above)":
+                    excel_df      = report_df
+                    excel_entries = range_entries
+                    excel_fname   = f"Report_{start_idx}_to_{end_idx}.xlsx"
+                else:
+                    month_entries = [
+                        e for e in all_real_entries
+                        if datetime.fromisoformat(e["timestamp"]).strftime("%B %Y") == selected_month
+                    ]
+                    month_display = []
+                    for idx2, e in enumerate(month_entries, 1):
+                        s_ts = e.get("start_time") or e.get("timestamp")
+                        e_ts = e.get("end_time")
+                        month_display.append({
+                            "S.No":     idx2,
+                            "Date":     Workjournal.fmt_date(e["timestamp"]),
+                            "Start":    Workjournal.fmt_time(s_ts) if s_ts else "N/A",
+                            "End":      Workjournal.fmt_time(e_ts) if e_ts else "N/A",
+                            "Duration": Workjournal.fmt_duration(s_ts, e_ts),
+                            "Category": e["category"].capitalize(),
+                            "Activity": e["activity_description"],
+                        })
+                    excel_df      = pd.DataFrame(month_display)
+                    excel_entries = month_entries
+                    excel_fname   = f"Report_{selected_month.replace(' ', '_')}.xlsx"
+
+                excel_bytes = build_excel(excel_df, excel_entries)
                 st.download_button(
                     label="⬇️ Download Excel",
                     data=excel_bytes,
-                    file_name=f"Report_{start_idx}_to_{end_idx}.xlsx",
+                    file_name=excel_fname,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 )
 

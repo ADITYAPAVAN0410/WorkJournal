@@ -20,21 +20,56 @@ IST = timezone(timedelta(hours=5, minutes=30))
 st.set_page_config(page_title="WorkJournal", layout="wide")
 st.title("💻 WorkJournal")
 
-# ── USERNAME ──────────────────────────────────────────────────────────────────
+# ── AUTH ──────────────────────────────────────────────────────────────────────
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "auth_user" not in st.session_state:
+    st.session_state.auth_user = ""
+
 with st.sidebar:
-    st.header("👤 Who are you?")
-    username_input = st.text_input("Enter your name to load your journal",
-                                   placeholder="e.g. aditya")
-    if username_input.strip():
-        st.success(f"Logged in as **{username_input.strip().lower()}**")
+    st.header("👤 Sign In")
+
+    if st.session_state.authenticated:
+        st.success(f"Logged in as **{st.session_state.auth_user}**")
+        if st.button("🚪 Log Out"):
+            st.session_state.authenticated = False
+            st.session_state.auth_user = ""
+            st.rerun()
     else:
-        st.warning("Please enter your name to continue.")
+        username_input = st.text_input("Username", placeholder="e.g. aditya").strip().lower()
+        pin_input      = st.text_input("PIN", type="password", placeholder="4-digit PIN")
 
-username = username_input.strip().lower()
+        if username_input and Workjournal.user_exists(username_input):
+            # Returning user
+            if st.button("Login"):
+                if Workjournal.verify_pin(username_input, pin_input):
+                    st.session_state.authenticated = True
+                    st.session_state.auth_user = username_input
+                    st.rerun()
+                else:
+                    st.error("⛔ Incorrect PIN. Please try again.")
+        elif username_input:
+            # New user — register
+            st.info("New user detected. Confirm your PIN to register.")
+            pin_confirm = st.text_input("Confirm PIN", type="password", placeholder="Re-enter PIN")
+            if st.button("Create Account"):
+                if len(pin_input) < 4:
+                    st.error("PIN must be at least 4 digits.")
+                elif pin_input != pin_confirm:
+                    st.error("⛔ PINs do not match. Please try again.")
+                else:
+                    Workjournal.set_pin(username_input, pin_input)
+                    st.session_state.authenticated = True
+                    st.session_state.auth_user = username_input
+                    st.rerun()
+        else:
+            st.warning("Please enter your username to continue.")
 
-if not username:
-    st.info("👈 Enter your name in the sidebar to get started.")
+if not st.session_state.authenticated:
+    st.info("👈 Please sign in from the sidebar to use WorkJournal.")
     st.stop()
+
+username = st.session_state.auth_user
 
 # ── 1. LOG FORM ──────────────────────────────────────────────────────────────
 with st.expander("➕ Log New Activity"):

@@ -7,10 +7,28 @@ IST = timezone(timedelta(hours=5, minutes=30))
 
 VALID_CATEGORIES = ["coding", "meeting", "planning", "review", "research", "docs", "devops", "admin", "other", "practice"]
 
-def _journal_file(username: str) -> Path:
-    path = Path.home() / ".workjournal" / username.strip().lower() / "journal.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
+def _user_dir(username: str) -> Path:
+    path = Path.home() / ".workjournal" / username.strip().lower()
+    path.mkdir(parents=True, exist_ok=True)
     return path
+
+def _journal_file(username: str) -> Path:
+    return _user_dir(username) / "journal.json"
+
+def _pin_file(username: str) -> Path:
+    return _user_dir(username) / "pin.txt"
+
+def user_exists(username: str) -> bool:
+    return _pin_file(username).exists()
+
+def set_pin(username: str, pin: str) -> None:
+    _pin_file(username).write_text(pin.strip(), encoding="utf-8")
+
+def verify_pin(username: str, pin: str) -> bool:
+    f = _pin_file(username)
+    if not f.exists():
+        return False
+    return f.read_text(encoding="utf-8").strip() == pin.strip()
 
 def load_journal(username: str = "default") -> List[Dict]:
     f = _journal_file(username)
